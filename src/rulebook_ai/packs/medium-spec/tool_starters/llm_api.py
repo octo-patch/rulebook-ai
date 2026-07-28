@@ -105,6 +105,16 @@ def create_llm_client(provider="openai"):
         return Anthropic(
             api_key=api_key
         )
+    elif provider == "minimax":
+        api_key = os.getenv('MINIMAX_API_KEY')
+        if not api_key:
+            raise ValueError("MINIMAX_API_KEY not found in environment variables")
+        # MiniMax exposes an OpenAI-compatible endpoint. Override MINIMAX_BASE_URL
+        # to use the China region (https://api.minimaxi.com/v1).
+        return OpenAI(
+            api_key=api_key,
+            base_url=os.getenv('MINIMAX_BASE_URL', 'https://api.minimax.io/v1'),
+        )
     elif provider == "gemini":
         api_key = os.getenv('GOOGLE_API_KEY')
         if not api_key:
@@ -149,12 +159,14 @@ def query_llm(prompt: str, client=None, model=None, provider="openai", image_pat
                 model = "deepseek-ai/DeepSeek-R1"
             elif provider == "anthropic":
                 model = "claude-3-7-sonnet-20250219"
+            elif provider == "minimax":
+                model = "MiniMax-M3"
             elif provider == "gemini":
                 model = "gemini-2.0-flash-exp"
             elif provider == "local":
                 model = "Qwen/Qwen2.5-32B-Instruct-AWQ"
         
-        if provider in ["openai", "local", "deepseek", "azure", "siliconflow"]:
+        if provider in ["openai", "local", "deepseek", "azure", "siliconflow", "minimax"]:
             messages = [{"role": "user", "content": []}]
             
             # Add text content
@@ -242,7 +254,7 @@ def query_llm(prompt: str, client=None, model=None, provider="openai", image_pat
 def main():
     parser = argparse.ArgumentParser(description='Query an LLM with a prompt')
     parser.add_argument('--prompt', type=str, help='The prompt to send to the LLM', required=True)
-    parser.add_argument('--provider', choices=['openai','anthropic','gemini','local','deepseek','azure','siliconflow'], default='openai', help='The API provider to use')
+    parser.add_argument('--provider', choices=['openai','anthropic','gemini','local','deepseek','azure','siliconflow','minimax'], default='openai', help='The API provider to use')
     parser.add_argument('--model', type=str, help='The model to use (default depends on provider)')
     parser.add_argument('--image', type=str, help='Path to an image file to attach to the prompt')
     args = parser.parse_args()
@@ -260,6 +272,8 @@ def main():
             args.model = "gemini-2.0-flash-exp"
         elif args.provider == 'azure':
             args.model = os.getenv('AZURE_OPENAI_MODEL_DEPLOYMENT', 'gpt-4o-ms')  # Get from env with fallback
+        elif args.provider == 'minimax':
+            args.model = "MiniMax-M3"
 
     client = create_llm_client(args.provider)
     response = query_llm(args.prompt, client, model=args.model, provider=args.provider, image_path=args.image)
