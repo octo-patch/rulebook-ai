@@ -180,10 +180,8 @@ def query_llm(prompt: str, client=None, model=None, provider="openai", image_pat
                 model = "deepseek-chat"
             elif provider == "siliconflow":
                 model = "deepseek-ai/DeepSeek-R1"
-            elif provider == "minimax":
-                model = "MiniMax-M3"
-            elif provider == "minimax_anthropic":
-                model = "MiniMax-M3"
+            elif provider in ["minimax", "minimax_anthropic"]:
+                model = "MiniMax-M3" if image_path else "MiniMax-M3.1-Flash"
             elif provider == "anthropic":
                 model = "claude-3-7-sonnet-20250219"
             elif provider == "gemini":
@@ -247,9 +245,14 @@ def query_llm(prompt: str, client=None, model=None, provider="openai", image_pat
             
             response = client.messages.create(
                 model=model,
-                max_tokens=1000,
+                max_tokens=(
+                    4096 if provider == "minimax_anthropic" and model == "MiniMax-M3.1-Flash"
+                    else 1000
+                ),
                 messages=messages
             )
+            if provider == "minimax_anthropic" and model == "MiniMax-M3.1-Flash":
+                return "".join(block.text for block in response.content if block.type == "text")
             return response.content[0].text
             
         elif provider == "gemini":
@@ -296,9 +299,9 @@ def main():
         elif args.provider == 'gemini':
             args.model = "gemini-2.0-flash-exp"
         elif args.provider == 'minimax':
-            args.model = "MiniMax-M3"
+            args.model = "MiniMax-M3" if args.image else "MiniMax-M3.1-Flash"
         elif args.provider == 'minimax_anthropic':
-            args.model = "MiniMax-M3"
+            args.model = "MiniMax-M3" if args.image else "MiniMax-M3.1-Flash"
         elif args.provider == 'azure':
             args.model = os.getenv('AZURE_OPENAI_MODEL_DEPLOYMENT', 'gpt-4o-ms')  # Get from env with fallback
 
